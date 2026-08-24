@@ -1,0 +1,302 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  TUTOR
+  ADMIN
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  TEACHER_INSTITUTION
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXAM_LEVEL
+}
+
+enum MistakeCategory {
+  CONCEPTUAL_ERROR
+  CALCULATION_ERROR
+  CARELESS_MISTAKE
+  MISREAD_QUESTION
+  FORMULA_ERROR
+  TIME_PRESSURE
+  GUESS
+}
+
+enum SocraticRole {
+  SOCRATIC_TUTOR
+  EXPLAIN
+  QUICK_HINT
+  EXAM_COACH
+  DEEP_TUTOR
+  REVISION
+  QUIZ_ME
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  name            String
+  avatarUrl       String?
+  role            Role             @default(STUDENT)
+  subscription    SubscriptionTier @default(FREE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  profile         Profile?
+  masteries       Mastery[]
+  examAttempts    ExamAttempt[]
+  questionAttempts QuestionAttempt[]
+  mistakes        Mistake[]
+  studySessions   StudySession[]
+  studyPlans      StudyPlan[]
+  aiConversations AIConversation[]
+  goals           Goal[]
+  bookings        Booking[]
+}
+
+model Profile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetExam        String   @default("University Admission")
+  examDate          DateTime?
+  targetScore       Float    @default(85.0)
+  preferredLanguage String   @default("en") // 'en' | 'bn'
+  dailyGoalHours    Float    @default(4.0)
+  currentStreakDays Int      @default(12)
+  highestStreakDays Int      @default(18)
+  bio               String?
+  gradeOrYear       String   @default("12th Grade / HSC")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Subject {
+  id          String   @id @default(uuid())
+  name        String   @unique // 'Physics', 'Mathematics', 'Chemistry', 'Biology'
+  code        String   @unique
+  color       String   @default("#000000")
+  icon        String   @default("school")
+  description String?
+  topics      Topic[]
+}
+
+model Topic {
+  id          String     @id @default(uuid())
+  subjectId   String
+  subject     Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  name        String
+  code        String
+  importance  Int        @default(3) // 1 to 5 scale
+  description String?
+  questions   Question[]
+  masteries   Mastery[]
+}
+
+model Question {
+  id                Int               @id @default(autoincrement())
+  subjectId         String
+  topicId           String
+  topic             Topic             @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  chapter           String
+  difficulty        Difficulty        @default(MEDIUM)
+  title             String?
+  questionText      String
+  formula           String?
+  graphType         String?           // 'integral', 'velocity-time', 'thermodynamics', 'wave'
+  options           QuestionOption[]
+  correctOptionId   String            // 'A' | 'B' | 'C' | 'D'
+  explanationOverview String
+  whyWrongDetails   String?
+  stepByStep        String[]
+  simpleExplanation String
+  banglaExplanation String
+  keyTakeaway       String
+  mistakeDefaultCat MistakeCategory   @default(CONCEPTUAL_ERROR)
+  createdAt         DateTime          @default(now())
+  attempts          QuestionAttempt[]
+  mistakes          Mistake[]
+}
+
+model QuestionOption {
+  id         String   @id @default(uuid())
+  questionId Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  letter     String   // 'A', 'B', 'C', 'D'
+  text       String
+}
+
+model Exam {
+  id              String        @id @default(uuid())
+  title           String
+  subjectName     String
+  totalQuestions  Int           @default(20)
+  durationMinutes Int           @default(45)
+  isFullMock      Boolean       @default(true)
+  attempts        ExamAttempt[]
+}
+
+model ExamAttempt {
+  id               String            @id @default(uuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examId           String
+  exam             Exam              @relation(fields: [examId], references: [id], onDelete: Cascade)
+  scorePercentage  Float
+  answeredCount    Int
+  correctCount     Int
+  totalQuestions   Int
+  grade            String
+  percentile       Float
+  timeSpentSeconds Int
+  completedAt      DateTime          @default(now())
+  questionAttempts QuestionAttempt[]
+}
+
+model QuestionAttempt {
+  id               String          @id @default(uuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId       Int
+  question         Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  examAttemptId    String?
+  examAttempt      ExamAttempt?    @relation(fields: [examAttemptId], references: [id], onDelete: SetNull)
+  selectedOption   String?
+  isCorrect        Boolean
+  timeSpentSeconds Int             @default(0)
+  createdAt        DateTime        @default(now())
+}
+
+model Mistake {
+  id               String          @id @default(uuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId       Int
+  question         Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  category         MistakeCategory @default(CONCEPTUAL_ERROR)
+  studentAnswer    String?
+  correctAnswer    String
+  attemptCount     Int             @default(1)
+  correctCount     Int             @default(0)
+  isResolved       Boolean         @default(false)
+  lastAttemptedAt  DateTime        @default(now())
+  resolvedAt       DateTime?
+  notes            String?
+}
+
+model Mastery {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId         String
+  topic           Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  masteryScore    Float     @default(50.0) // 0 - 100
+  totalAttempts   Int       @default(0)
+  correctAttempts Int       @default(0)
+  recentAccuracy  Float     @default(0.0)
+  lastPracticedAt DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([userId, topicId])
+}
+
+model StudySession {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  durationMinutes Int
+  activityType    String   // 'mock', 'drill', 'review', 'tutor'
+  label           String
+  createdAt       DateTime @default(now())
+}
+
+model StudyPlan {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          DateTime @default(now())
+  title         String
+  totalMinutes  Int      @default(90)
+  tasksJson     String   // Array of { id, topic, minutes, completed, type }
+  isCompleted   Boolean  @default(false)
+}
+
+model AIConversation {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String      @default("AI Tutor Session")
+  mode        SocraticRole @default(SOCRATIC_TUTOR)
+  messages    AIMessage[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         String         // 'user' | 'ai'
+  content        String
+  responseType   String         @default("explanation") // 'explanation', 'hint', 'quiz', 'step-by-step', 'socratic'
+  metaJson       String?
+  createdAt      DateTime       @default(now())
+}
+
+model Goal {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyHours     Float    @default(4.0)
+  targetExamDate DateTime?
+  targetScore    Float    @default(85.0)
+  updatedAt      DateTime @updatedAt
+}
+
+model Tutor {
+  id              String    @id @default(uuid())
+  name            String
+  title           String
+  subject         String
+  specialty       String
+  education       String
+  rating          Float     @default(5.0)
+  reviewCount     Int       @default(0)
+  yearsExperience Int       @default(5)
+  languages       String[]
+  hourlyRateBDT   Int
+  avatarUrl       String
+  isHighDemand    Boolean   @default(false)
+  isAvailableToday Boolean  @default(true)
+  bio             String
+  bookings        Booking[]
+}
+
+model Booking {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tutorId     String
+  tutor       Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  date        String
+  timeSlot    String
+  subject     String
+  topic       String
+  status      String   @default("CONFIRMED") // 'CONFIRMED', 'COMPLETED', 'CANCELLED'
+  rateBDT     Int
+  createdAt   DateTime @default(now())
+}

@@ -1,213 +1,304 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useMastery } from '../hooks/useMastery';
 
 interface PracticeViewProps {
   onStartSession: (subject: string, topic?: string, count?: number) => void;
 }
 
+interface PracticeQuestion {
+  id: number;
+  prompt: string;
+  formula?: string;
+  options: { id: 'A' | 'B' | 'C' | 'D'; text: string }[];
+  correct: 'A' | 'B' | 'C' | 'D';
+}
+
+const SAMPLE_PRACTICE_QUESTIONS: PracticeQuestion[] = [
+  {
+    id: 7,
+    prompt: 'Solve the indefinite integral:',
+    formula: '∫ (2x + 3) dx',
+    options: [
+      { id: 'A', text: 'x² + 3x + C' },
+      { id: 'B', text: 'x² + 3x + C' },
+      { id: 'C', text: '2x² + 3x + C' },
+      { id: 'D', text: '2x² + 3x + C' },
+    ],
+    correct: 'B',
+  },
+  {
+    id: 8,
+    prompt: 'Evaluate the derivative with respect to x:',
+    formula: 'd/dx [sin(3x) · e^(2x)]',
+    options: [
+      { id: 'A', text: '3cos(3x)e^(2x) + 2sin(3x)e^(2x)' },
+      { id: 'B', text: '6cos(3x)e^(2x)' },
+      { id: 'C', text: '3sin(3x)e^(2x) + 2cos(3x)e^(2x)' },
+      { id: 'D', text: 'cos(3x)e^(2x)' },
+    ],
+    correct: 'A',
+  },
+  {
+    id: 9,
+    prompt: 'Find the limit as x approaches 0:',
+    formula: 'lim(x→0) [sin(5x) / x]',
+    options: [
+      { id: 'A', text: '0' },
+      { id: 'B', text: '1' },
+      { id: 'C', text: '5' },
+      { id: 'D', text: 'Undefined' },
+    ],
+    correct: 'C',
+  },
+];
+
 export const PracticeView: React.FC<PracticeViewProps> = ({ onStartSession }) => {
-  const [selectedSubject, setSelectedSubject] = useState<'All' | 'Physics' | 'Mathematics' | 'Chemistry'>('All');
+  const { weakestTopics } = useMastery();
 
-  const topics = [
-    {
-      id: 'p1',
-      subject: 'Physics',
-      name: 'Thermodynamics & Heat Cycles',
-      questionsCount: 45,
-      accuracy: '64%',
-      difficulty: 'Medium',
-      icon: 'local_fire_department',
-    },
-    {
-      id: 'm1',
-      subject: 'Mathematics',
-      name: 'Calculus: Integration by Parts & Partial Fractions',
-      questionsCount: 60,
-      accuracy: '43%',
-      difficulty: 'Hard',
-      isWeak: true,
-      icon: 'functions',
-    },
-    {
-      id: 'p2',
-      subject: 'Physics',
-      name: 'Kinematics & Projectile Dynamics',
-      questionsCount: 50,
-      accuracy: '88%',
-      difficulty: 'Medium',
-      icon: 'trending_up',
-    },
-    {
-      id: 'c1',
-      subject: 'Chemistry',
-      name: 'Organic Chemistry: Electrophilic Substitution',
-      questionsCount: 35,
-      accuracy: '72%',
-      difficulty: 'Medium',
-      icon: 'science',
-    },
-    {
-      id: 'p3',
-      subject: 'Physics',
-      name: 'Wave Optics & Doppler Effect',
-      questionsCount: 40,
-      accuracy: '80%',
-      difficulty: 'Hard',
-      icon: 'graphic_eq',
-    },
-    {
-      id: 'm2',
-      subject: 'Mathematics',
-      name: 'Quadratic Discriminants & Complex Roots',
-      questionsCount: 30,
-      accuracy: '75%',
-      difficulty: 'Easy',
-      icon: 'calculate',
-    },
-  ];
+  const [selectedSubject, setSelectedSubject] = useState<'Mathematics' | 'Physics' | 'Chemistry'>('Mathematics');
+  const [selectedTopic, setSelectedTopic] = useState<string>('Integration');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<'Easy' | 'Medium' | 'Hard'>('Medium');
 
-  const filteredTopics = selectedSubject === 'All' ? topics : topics.filter((t) => t.subject === selectedSubject);
+  const [currentQIndex, setCurrentQIndex] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<'A' | 'B' | 'C' | 'D' | null>('B');
+  const [isMarkedForReview, setIsMarkedForReview] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState(272); // 04:32
+  const [score, setScore] = useState(120);
+  const [accuracy, setAccuracy] = useState(85);
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsRemaining((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTimer = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const currentQ = SAMPLE_PRACTICE_QUESTIONS[currentQIndex] || SAMPLE_PRACTICE_QUESTIONS[0];
+
+  const handleNextQuestion = () => {
+    if (selectedOption === currentQ.correct) {
+      setScore((prev) => prev + 15);
+    }
+    if (currentQIndex < SAMPLE_PRACTICE_QUESTIONS.length - 1) {
+      setCurrentQIndex((prev) => prev + 1);
+      setSelectedOption(null);
+      setShowFeedback(false);
+    } else {
+      onStartSession(selectedSubject, selectedTopic);
+    }
+  };
 
   return (
-    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto">
-      {/* Header */}
-      <div>
-        <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#000000]">
-          Practice Library
-        </h2>
-        <p className="text-sm text-[#44474d] mt-1">
-          Adaptive problem sets and micro-drills engineered for rapid knowledge retention.
-        </p>
-      </div>
-
-      {/* Featured Practice Modes */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Adaptive Engine */}
-        <div className="bg-[#ffffff] rounded-2xl p-6 border border-[#c5c6cd]/60 ambient-shadow flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-[#000000] text-white flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-[22px]">auto_mode</span>
-            </div>
-            <h3 className="font-display text-lg font-bold text-[#000000]">Adaptive AI Engine</h3>
-            <p className="text-xs text-[#44474d] mt-1.5 leading-relaxed">
-              Dynamically scales difficulty in real-time based on your response latency and error probability.
-            </p>
-          </div>
+    <div className="space-y-6 animate-fadeIn max-w-5xl mx-auto font-body pb-8">
+      {/* 1. Top Selector Bar matching Mockup */}
+      <div className="bg-[#FFFFFF] rounded-2xl p-4 sm:p-5 border border-[#E2E8F0] shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => onStartSession('Adaptive', 'All Subjects', 15)}
-            className="mt-6 w-full py-2.5 bg-[#000000] hover:bg-[#1b1c1b] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            onClick={() => onStartSession(selectedSubject)}
+            className="p-2 text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] rounded-xl transition-colors cursor-pointer"
+            aria-label="Back"
           >
-            <span className="material-symbols-outlined text-[16px]">play_arrow</span>
-            Start Adaptive Session (15 Qs)
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </button>
+          <div>
+            <h2 className="font-display text-lg font-bold text-[#0F172A]">Practice</h2>
+            <p className="text-xs text-[#64748B]">Adaptive Question Pacing</p>
+          </div>
         </div>
 
-        {/* Targeted Weakness Drill */}
-        <div className="bg-[#ffffff] rounded-2xl p-6 border border-[#ffdbd0] shadow-sm flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -top-6 -right-6 w-20 h-20 bg-[#ffdbd0]/40 rounded-full" />
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-[#aa3000] text-white flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-[22px]">target</span>
-            </div>
-            <h3 className="font-display text-lg font-bold text-[#000000]">Weakness Blitz</h3>
-            <p className="text-xs text-[#44474d] mt-1.5 leading-relaxed">
-              Exclusively presents questions from topics where your accuracy is currently below 60%.
-            </p>
+        {/* Dropdowns */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Subject Dropdown */}
+          <div className="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-xl border border-[#E2E8F0]">
+            <span className="text-xs font-semibold text-[#64748B]">Subject:</span>
+            <select
+              value={selectedSubject}
+              onChange={(e) => setSelectedSubject(e.target.value as any)}
+              className="text-xs font-bold text-[#0F172A] bg-transparent outline-none cursor-pointer"
+            >
+              <option value="Mathematics">Mathematics</option>
+              <option value="Physics">Physics</option>
+              <option value="Chemistry">Chemistry</option>
+            </select>
           </div>
-          <button
-            onClick={() => onStartSession('Mathematics', 'Calculus', 10)}
-            className="mt-6 w-full py-2.5 bg-[#aa3000] hover:bg-[#8e2800] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">flash_on</span>
-            Target Calculus (10 Qs)
-          </button>
-        </div>
 
-        {/* Speed Sprint */}
-        <div className="bg-[#ffffff] rounded-2xl p-6 border border-[#c5c6cd]/60 ambient-shadow flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 rounded-xl bg-[#f5f3f1] text-[#000000] flex items-center justify-center mb-4 border border-[#c5c6cd]/60">
-              <span className="material-symbols-outlined text-[22px]">speed</span>
-            </div>
-            <h3 className="font-display text-lg font-bold text-[#000000]">Timed Speed Drill</h3>
-            <p className="text-xs text-[#44474d] mt-1.5 leading-relaxed">
-              30 seconds per question to build exam pacing and eliminate hesitations on standard formulas.
-            </p>
+          {/* Topic Dropdown */}
+          <div className="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-xl border border-[#E2E8F0]">
+            <span className="text-xs font-semibold text-[#64748B]">Topic:</span>
+            <select
+              value={selectedTopic}
+              onChange={(e) => setSelectedTopic(e.target.value)}
+              className="text-xs font-bold text-[#0F172A] bg-transparent outline-none cursor-pointer"
+            >
+              <option value="Integration">Integration</option>
+              <option value="Calculus">Calculus</option>
+              <option value="Vectors">Vectors</option>
+            </select>
           </div>
-          <button
-            onClick={() => onStartSession('Physics', 'Speed Sprint', 10)}
-            className="mt-6 w-full py-2.5 bg-[#f5f3f1] hover:bg-[#eae8e6] text-[#000000] text-xs font-bold rounded-xl border border-[#c5c6cd] transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">timer</span>
-            Start Sprint (5 Mins)
-          </button>
+
+          {/* Difficulty Dropdown */}
+          <div className="flex items-center gap-1.5 bg-[#F8FAFC] px-3 py-1.5 rounded-xl border border-[#E2E8F0]">
+            <span className="text-xs font-semibold text-[#64748B]">Difficulty:</span>
+            <select
+              value={selectedDifficulty}
+              onChange={(e) => setSelectedDifficulty(e.target.value as any)}
+              className="text-xs font-bold text-[#4F46E5] bg-transparent outline-none cursor-pointer"
+            >
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Subject Filter Pills */}
-      <div className="flex items-center justify-between pt-4 border-t border-[#c5c6cd]/40">
-        <h3 className="font-display text-xl font-bold text-[#000000]">Topic-Wise Catalog</h3>
-        <div className="flex items-center gap-2">
-          {(['All', 'Physics', 'Mathematics', 'Chemistry'] as const).map((sub) => (
+      {/* 2. Main Practice Layout (Question Area on Left, HUD on Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Question & Options Area */}
+        <div className="lg:col-span-8 bg-[#FFFFFF] rounded-3xl p-6 sm:p-8 border border-[#E2E8F0] shadow-sm space-y-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#64748B] bg-[#F1F5F9] px-3 py-1 rounded-full">
+                Question {currentQ.id} of 15
+              </span>
+              <span className="text-xs font-bold text-[#4F46E5] bg-[#EEF2FF] px-2.5 py-0.5 rounded-full">
+                Calculus
+              </span>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <h3 className="text-sm font-semibold text-[#475569]">{currentQ.prompt}</h3>
+              {currentQ.formula && (
+                <div className="p-4 bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0] text-center font-mono text-xl sm:text-2xl font-extrabold text-[#0F172A]">
+                  {currentQ.formula}
+                </div>
+              )}
+            </div>
+
+            {/* 4 Interactive Options matching Mockup */}
+            <div className="space-y-3 pt-2">
+              {currentQ.options.map((opt) => {
+                const isSelected = selectedOption === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => setSelectedOption(opt.id)}
+                    className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                      isSelected
+                        ? 'border-2 border-[#4F46E5] bg-[#EEF2FF]/40 text-[#0F172A] shadow-sm'
+                        : 'border-[#E2E8F0] hover:border-[#CBD5E1] bg-[#FFFFFF] text-[#334155]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                          isSelected
+                            ? 'bg-[#4F46E5] text-white'
+                            : 'bg-[#F1F5F9] text-[#64748B]'
+                        }`}
+                      >
+                        {opt.id}
+                      </span>
+                      <span className="font-mono text-sm sm:text-base font-semibold">
+                        {opt.text}
+                      </span>
+                    </div>
+
+                    <div
+                      className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                        isSelected ? 'border-[#4F46E5] bg-[#4F46E5]' : 'border-[#CBD5E1]'
+                      }`}
+                    >
+                      {isSelected && <span className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom Action Controls */}
+          <div className="pt-4 border-t border-[#F1F5F9] flex items-center justify-between gap-4">
             <button
-              key={sub}
-              onClick={() => setSelectedSubject(sub)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                selectedSubject === sub
-                  ? 'bg-[#000000] text-white shadow-sm'
-                  : 'bg-[#f5f3f1] text-[#44474d] hover:text-[#000000]'
+              onClick={() => setIsMarkedForReview(!isMarkedForReview)}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                isMarkedForReview
+                  ? 'bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
+                  : 'bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#64748B]'
               }`}
             >
-              {sub}
+              <span className="material-symbols-outlined text-[16px]">
+                {isMarkedForReview ? 'bookmark_added' : 'bookmark_border'}
+              </span>
+              <span>{isMarkedForReview ? 'Marked' : 'Mark for Review'}</span>
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Topics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredTopics.map((topic) => (
-          <div
-            key={topic.id}
-            className={`bg-[#ffffff] rounded-2xl p-5 border transition-all ${
-              topic.isWeak
-                ? 'border-[#ffdbd0] hover:border-[#aa3000]'
-                : 'border-[#c5c6cd]/60 hover:border-[#000000]'
-            } ambient-shadow flex items-center justify-between gap-4`}
-          >
-            <div className="flex items-center gap-4">
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  topic.isWeak ? 'bg-[#ffdbd0]/50 text-[#aa3000]' : 'bg-[#f5f3f1] text-[#000000]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]">{topic.icon}</span>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-[#75777e] uppercase tracking-wider">
-                    {topic.subject}
-                  </span>
-                  {topic.isWeak && (
-                    <span className="text-[10px] font-bold text-[#aa3000] bg-[#ffdbd0]/60 px-1.5 py-0.2 rounded">
-                      Low Accuracy
-                    </span>
-                  )}
-                </div>
-                <h4 className="text-sm font-bold text-[#000000] mt-0.5">{topic.name}</h4>
-                <p className="text-xs text-[#75777e] mt-1">
-                  {topic.questionsCount} questions • Historical Accuracy: <strong>{topic.accuracy}</strong>
-                </p>
-              </div>
-            </div>
 
             <button
-              onClick={() => onStartSession(topic.subject, topic.name, 10)}
-              className="px-4 py-2 bg-[#f5f3f1] hover:bg-[#000000] hover:text-white text-[#000000] text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer"
+              id="practice-next-question-btn"
+              onClick={handleNextQuestion}
+              className="px-6 py-2.5 text-xs sm:text-sm font-bold text-white bg-[#4F46E5] hover:bg-[#4338CA] rounded-xl transition-all shadow-md shadow-indigo-500/20 active:scale-95 flex items-center gap-2 cursor-pointer"
             >
-              Practice
+              <span>Next Question</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </button>
           </div>
-        ))}
+        </div>
+
+        {/* Right HUD Progress Panel */}
+        <div className="lg:col-span-4 space-y-5">
+          {/* Circular Countdown Timer */}
+          <div className="bg-[#FFFFFF] rounded-3xl p-6 border border-[#E2E8F0] shadow-sm text-center flex flex-col items-center justify-center space-y-3">
+            <span className="text-xs font-bold text-[#64748B] uppercase tracking-wider">
+              Time Remaining
+            </span>
+
+            <div className="relative w-28 h-28 flex items-center justify-center">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-[#E2E8F0]"
+                  strokeWidth="3"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="text-[#10B981]"
+                  strokeDasharray="65, 100"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute text-center">
+                <span className="font-display text-lg font-extrabold text-[#0F172A]">
+                  {formatTimer(secondsRemaining)}
+                </span>
+                <span className="block text-[9px] font-bold text-[#64748B]">min</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Accuracy & Score Cards */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[#FFFFFF] rounded-2xl p-4 border border-[#E2E8F0] shadow-sm text-center">
+              <span className="text-[10px] font-bold text-[#64748B] uppercase">Accuracy</span>
+              <p className="font-display text-2xl font-extrabold text-[#10B981] mt-1">{accuracy}%</p>
+            </div>
+            <div className="bg-[#FFFFFF] rounded-2xl p-4 border border-[#E2E8F0] shadow-sm text-center">
+              <span className="text-[10px] font-bold text-[#64748B] uppercase">Score</span>
+              <p className="font-display text-2xl font-extrabold text-[#4F46E5] mt-1">{score} <span className="text-xs font-normal text-[#64748B]">pts</span></p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

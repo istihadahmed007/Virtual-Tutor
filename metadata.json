@@ -1,6 +1,6 @@
 {
-  "name": "Exam Mastery OS",
-  "description": "Minimalist-editorial high-stakes exam preparation platform with adaptive practice, mistake book, AI coach, diagnostics, and premium tutors.",
-  "requestFramePermissions": [],
+  "name": "Virtual Tutor",
+  "description": "Your Personal AI Tutor That Understands You. Adaptive learning that identifies your weak areas, explains every concept clearly, and helps you master any subject.",
+  "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

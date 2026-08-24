@@ -1,6 +1,8 @@
 import React from 'react';
 import { Tutor } from '../types';
-import { DailyStudyGoal } from './DailyStudyGoal';
+import { useMastery } from '../hooks/useMastery';
+import { useStudyPlan } from '../hooks/useStudyPlan';
+import { useMistakes } from '../hooks/useMistakes';
 
 interface DashboardViewProps {
   onStartExam: (subject?: string) => void;
@@ -19,316 +21,382 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   tutors,
   targetDays,
 }) => {
+  const { overallScore, weakestTopics, subjectMasteries } = useMastery();
+  const { studyPlan } = useStudyPlan();
+  const { mistakes } = useMistakes();
+
+  const primaryWeakTopic = weakestTopics[0]?.topic || 'Integration by Parts';
+  const primaryWeakScore = weakestTopics[0]?.masteryScore || 43;
+
   return (
-    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto">
-      {/* Top Banner / Exam Countdown Hero */}
-      <div className="bg-[#ffffff] rounded-2xl p-6 sm:p-8 border border-[#c5c6cd]/60 ambient-shadow flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="space-y-2 z-10 max-w-xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ffdbd0]/60 text-[#aa3000] text-xs font-bold uppercase tracking-wider">
-            <span className="material-symbols-outlined text-[14px]">schedule</span>
-            High-Stakes Countdown: {targetDays} Days Remaining
-          </div>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#000000]">
-            Targeting Top 5% Engineering & Board Rank
-          </h2>
-          <p className="text-sm text-[#44474d] leading-relaxed">
-            Your readiness score is at <strong>78%</strong>. Completing today’s targeted Calculus
-            drill and reviewing 2 thermodynamics mistakes will lift your projected percentile to <strong>84%</strong>.
+    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto pb-8 font-body">
+      {/* 1. Header Greeting */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
+            Good evening, Ahmed! 👋
+          </h1>
+          <p className="text-sm sm:text-base text-[#64748B] mt-1 font-medium">
+            You're <span className="text-[#4F46E5] font-bold">{overallScore}%</span> ready for your target exam.
           </p>
         </div>
 
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 z-10">
+        <div className="flex items-center gap-3">
           <button
-            id="dashboard-continue-practice-btn"
-            onClick={() => onStartPractice('Calculus')}
-            className="w-full sm:w-auto px-6 py-3 bg-[#aa3000] hover:bg-[#8e2800] text-white font-bold text-sm rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+            onClick={() => onNavigateTab('coach')}
+            className="px-4 py-2 text-xs sm:text-sm font-bold text-[#4F46E5] bg-[#EEF2FF] hover:bg-[#E0E7FF] rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[18px]">play_arrow</span>
-            Continue Practice
+            <span className="material-symbols-outlined text-[18px]">psychology</span>
+            <span>Ask AI Coach</span>
           </button>
           <button
-            id="dashboard-start-mock-btn"
-            onClick={() => onStartExam('Physics')}
-            className="w-full sm:w-auto px-6 py-3 bg-[#f5f3f1] hover:bg-[#eae8e6] text-[#000000] font-bold text-sm rounded-xl transition-all border border-[#c5c6cd]/80 flex items-center justify-center gap-2 cursor-pointer"
+            onClick={() => onStartPractice(primaryWeakTopic)}
+            className="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-[#4F46E5] hover:bg-[#4338CA] rounded-xl transition-all shadow-sm shadow-indigo-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
           >
-            <span className="material-symbols-outlined text-[18px]">assignment</span>
-            Full Mock Exam
+            <span className="material-symbols-outlined text-[18px]">bolt</span>
+            <span>Quick Drill</span>
           </button>
         </div>
       </div>
 
-      {/* Recommended Next Best Actions Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Urgent Weakness Alert */}
-        <div className="bg-[#ffffff] rounded-2xl p-6 border border-[#ffdbd0] shadow-sm flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-[#ffdbd0]/30 rounded-bl-full pointer-events-none" />
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#aa3000] bg-[#ffdbd0]/50 px-2.5 py-0.5 rounded">
-                Urgent Recommendation
-              </span>
-              <span className="material-symbols-outlined text-[#aa3000] text-[20px]">warning</span>
-            </div>
-            <h3 className="font-display text-lg font-bold text-[#000000]">
-              Calculus Accuracy Alert
-            </h3>
-            <p className="text-xs text-[#44474d] mt-1.5 leading-relaxed">
-              Accuracy dropped to 43% in Integration by Parts. Take a 15-minute targeted drill to
-              shore up algebraic factoring.
-            </p>
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-[#f5f3f1] flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#75777e] flex items-center gap-1">
-              <span className="material-symbols-outlined text-[14px]">timer</span> 15 Mins
+      {/* 2. 4 Dashboard Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Metric 1: Overall Mastery */}
+        <div className="bg-[#FFFFFF] rounded-2xl p-5 border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-[#64748B] uppercase tracking-wider block">
+              Overall Mastery
             </span>
-            <button
-              id="dashboard-fix-calculus-btn"
-              onClick={() => onStartPractice('Calculus')}
-              className="text-xs font-bold text-[#aa3000] hover:text-[#8e2800] flex items-center gap-1 group-hover:translate-x-1 transition-transform cursor-pointer"
-            >
-              Practice Calculus
-              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </button>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-3xl font-extrabold text-[#0F172A]">{overallScore}%</span>
+            </div>
+            <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
+              6% from last week
+            </span>
+          </div>
+
+          {/* Mini Progress Ring */}
+          <div className="relative w-12 h-12 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+              <path
+                className="text-[#E2E8F0]"
+                strokeWidth="3.5"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                className="text-[#4F46E5]"
+                strokeDasharray={`${overallScore}, 100`}
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+            <span className="material-symbols-outlined text-[#4F46E5] text-[18px] absolute">
+              verified
+            </span>
           </div>
         </div>
 
-        {/* Card 2: Adaptive Quick Practice */}
-        <div className="bg-[#ffffff] rounded-2xl p-6 border border-[#c5c6cd]/60 ambient-shadow flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#000000] bg-[#f5f3f1] px-2.5 py-0.5 rounded">
-                Adaptive Engine
-              </span>
-              <span className="material-symbols-outlined text-[#75777e] text-[20px]">tune</span>
+        {/* Metric 2: Study Streak */}
+        <div className="bg-[#FFFFFF] rounded-2xl p-5 border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-[#64748B] uppercase tracking-wider block">
+              Study Streak
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-display text-3xl font-extrabold text-[#0F172A]">14</span>
+              <span className="text-xs font-bold text-[#64748B]">days</span>
             </div>
-            <h3 className="font-display text-lg font-bold text-[#000000]">
-              10-Question Quick Drill
-            </h3>
-            <p className="text-xs text-[#44474d] mt-1.5 leading-relaxed">
-              Questions calibrated in real time based on your historical speed and mistake patterns.
-            </p>
+            <span className="text-xs font-semibold text-amber-600 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px] symbol-filled">local_fire_department</span>
+              Keep it up!
+            </span>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-[#f5f3f1] flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#75777e]">Mixed Topics</span>
-            <button
-              id="dashboard-start-adaptive-btn"
-              onClick={() => onStartPractice('Adaptive')}
-              className="text-xs font-bold text-[#000000] hover:text-[#aa3000] flex items-center gap-1 cursor-pointer"
-            >
-              Start Session
-              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </button>
+          <div className="w-12 h-12 rounded-2xl bg-[#FFFBEB] text-[#D97706] flex items-center justify-center border border-[#FDE68A]">
+            <span className="material-symbols-outlined text-[24px] symbol-filled">local_fire_department</span>
           </div>
         </div>
 
-        {/* Card 3: Mistake Book Review */}
-        <div className="bg-[#ffffff] rounded-2xl p-6 border border-[#c5c6cd]/60 ambient-shadow flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#000000] bg-[#f5f3f1] px-2.5 py-0.5 rounded">
-                Review Queue
-              </span>
-              <span className="material-symbols-outlined text-[#75777e] text-[20px]">
-                menu_book
-              </span>
+        {/* Metric 3: Study Time */}
+        <div className="bg-[#FFFFFF] rounded-2xl p-5 border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-[#64748B] uppercase tracking-wider block">
+              Study Time
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-display text-3xl font-extrabold text-[#0F172A]">18.5</span>
+              <span className="text-xs font-bold text-[#64748B]">hours</span>
             </div>
-            <h3 className="font-display text-lg font-bold text-[#000000]">
-              5 Unresolved Mistakes
-            </h3>
-            <p className="text-xs text-[#44474d] mt-1.5 leading-relaxed">
-              Review missed questions in Thermodynamics and Quadratic Discriminants with step-by-step AI insights.
-            </p>
+            <span className="text-xs font-semibold text-blue-600 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">schedule</span>
+              This week
+            </span>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-[#f5f3f1] flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#75777e]">Review Queue</span>
-            <button
-              id="dashboard-open-mistakes-btn"
-              onClick={() => onNavigateTab('mistakes')}
-              className="text-xs font-bold text-[#000000] hover:text-[#aa3000] flex items-center gap-1 cursor-pointer"
-            >
-              Open Mistake Book
-              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </button>
+          <div className="w-12 h-12 rounded-2xl bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center border border-[#BFDBFE]">
+            <span className="material-symbols-outlined text-[24px]">timer</span>
+          </div>
+        </div>
+
+        {/* Metric 4: Exam Readiness */}
+        <div className="bg-[#FFFFFF] rounded-2xl p-5 border border-[#E2E8F0] shadow-sm flex items-center justify-between">
+          <div className="space-y-1">
+            <span className="text-xs font-bold text-[#64748B] uppercase tracking-wider block">
+              Exam Readiness
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-display text-3xl font-extrabold text-[#0F172A]">72%</span>
+            </div>
+            <span className="text-xs font-semibold text-indigo-600 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">insights</span>
+              On track!
+            </span>
+          </div>
+
+          <div className="w-12 h-12 rounded-2xl bg-[#EEF2FF] text-[#4F46E5] flex items-center justify-center border border-[#C7D2FE]">
+            <span className="material-symbols-outlined text-[24px]">trending_up</span>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Subject Mastery + Featured Tutors */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: Subject Mastery & Performance breakdown */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-[#ffffff] rounded-2xl p-6 sm:p-7 border border-[#c5c6cd]/60 ambient-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="font-display text-xl font-bold text-[#000000]">
-                  Subject Mastery & Trajectory
-                </h3>
-                <p className="text-xs text-[#44474d] mt-0.5">
-                  Calculated from 1,245 solved questions across 14 mock sessions
-                </p>
-              </div>
-              <button
-                onClick={() => onNavigateTab('progress')}
-                className="text-xs font-bold text-[#aa3000] hover:underline"
-              >
-                View Analytics
-              </button>
+      {/* 3. Middle 2-Column Section: Today's Priority & Upcoming Exam */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Today's Priority Card (Highlighted) */}
+        <div className="lg:col-span-8 bg-gradient-to-br from-[#FFFFFF] via-[#FFFFFF] to-[#EEF2FF]/40 rounded-3xl p-6 sm:p-8 border border-[#C7D2FE] shadow-sm relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="space-y-4 max-w-md z-10">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#4F46E5] bg-[#EEF2FF] px-3 py-1 rounded-full border border-[#C7D2FE]">
+                Today's Priority
+              </span>
+              <span className="text-xs font-bold text-[#EF4444] bg-[#FEE2E2] px-2.5 py-0.5 rounded-full">
+                Weak Topic
+              </span>
             </div>
 
-            {/* Mastery Bars */}
-            <div className="space-y-5">
-              {/* Physics */}
-              <div>
-                <div className="flex justify-between items-center text-xs mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#000000]">Physics</span>
-                    <span className="text-[10px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded font-semibold">
-                      Strong
-                    </span>
-                  </div>
-                  <span className="font-bold text-[#000000]">82%</span>
-                </div>
-                <div className="w-full bg-[#f5f3f1] h-2.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-[#000000] h-full rounded-full transition-all duration-500"
-                    style={{ width: '82%' }}
-                  />
-                </div>
-              </div>
+            <div>
+              <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
+                {primaryWeakTopic}
+              </h2>
+              <p className="text-xs sm:text-sm font-semibold text-[#64748B] mt-1">
+                Mastery: <span className="text-[#EF4444] font-bold">{primaryWeakScore}%</span> • Calculus & Integration
+              </p>
+            </div>
 
-              {/* Chemistry */}
-              <div>
-                <div className="flex justify-between items-center text-xs mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#000000]">Chemistry</span>
-                    <span className="text-[10px] text-[#44474d] bg-[#f5f3f1] px-1.5 py-0.5 rounded font-semibold">
-                      On Track
-                    </span>
-                  </div>
-                  <span className="font-bold text-[#000000]">68%</span>
-                </div>
-                <div className="w-full bg-[#f5f3f1] h-2.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-[#44474d] h-full rounded-full transition-all duration-500"
-                    style={{ width: '68%' }}
-                  />
-                </div>
-              </div>
+            <p className="text-xs sm:text-sm text-[#475569] leading-relaxed">
+              AI recommends 20 minutes of focused adaptive practice to reinforce factorization and the LIATE integration rule.
+            </p>
 
-              {/* Mathematics / Calculus */}
-              <div>
-                <div className="flex justify-between items-center text-xs mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#000000]">Mathematics (Calculus)</span>
-                    <span className="text-[10px] text-[#aa3000] bg-[#ffdbd0]/50 px-1.5 py-0.5 rounded font-semibold">
-                      Action Required
-                    </span>
-                  </div>
-                  <span className="font-bold text-[#aa3000]">43%</span>
-                </div>
-                <div className="w-full bg-[#f5f3f1] h-2.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-[#aa3000] h-full rounded-full transition-all duration-500"
-                    style={{ width: '43%' }}
-                  />
-                </div>
-              </div>
+            <div className="pt-2">
+              <button
+                id="dashboard-start-practice-btn"
+                onClick={() => onStartPractice(primaryWeakTopic)}
+                className="px-6 py-3 text-sm font-bold text-white bg-[#4F46E5] hover:bg-[#4338CA] rounded-xl transition-all shadow-md shadow-indigo-500/25 active:scale-95 flex items-center gap-2 cursor-pointer"
+              >
+                <span>Start Practice</span>
+                <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+              </button>
             </div>
           </div>
 
-          {/* AI Coach Daily Insight Banner */}
-          <div className="bg-[#000000] text-white rounded-2xl p-6 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-[#ffffff]/10 text-[#ffb59e] flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[24px]">psychology</span>
-              </div>
-              <div>
-                <h4 className="font-display text-base font-bold text-white">
-                  AI Coach Daily Briefing
-                </h4>
-                <p className="text-xs text-[#c5c6cd] mt-1 max-w-lg leading-relaxed">
-                  "Your physics scores remain in the 90th percentile. Shifting 30 minutes from Mechanics to Calculus integration methods today will optimize your composite exam score."
-                </p>
+          {/* 3D Dartboard / Target Vector Graphic */}
+          <div className="relative w-44 h-44 sm:w-52 sm:h-52 shrink-0 flex items-center justify-center">
+            {/* Concentric circles target illustration */}
+            <div className="w-40 h-40 rounded-full bg-gradient-to-tr from-[#EEF2FF] to-[#E0E7FF] flex items-center justify-center p-4 border-4 border-[#C7D2FE]/60 shadow-inner">
+              <div className="w-28 h-28 rounded-full bg-[#FFFFFF] flex items-center justify-center p-3 shadow-md">
+                <div className="w-18 h-18 rounded-full bg-[#EF4444] flex items-center justify-center text-white shadow-lg shadow-red-500/30">
+                  <span className="material-symbols-outlined text-[32px]">crisis_alert</span>
+                </div>
               </div>
             </div>
 
-            <button
-              id="dashboard-consult-coach-btn"
-              onClick={() => onNavigateTab('coach')}
-              className="px-4 py-2 bg-white text-[#000000] hover:bg-[#eae8e6] text-xs font-bold rounded-lg transition-colors shrink-0 cursor-pointer"
-            >
-              Consult Coach
-            </button>
+            {/* Floating XP pill */}
+            <div className="absolute -bottom-1 right-2 bg-[#FFFFFF] px-3 py-1 rounded-full border border-[#E2E8F0] shadow-md text-xs font-extrabold text-[#4F46E5] flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px] text-amber-500">bolt</span>
+              +50 XP
+            </div>
           </div>
         </div>
 
-        {/* Right Col: Daily Study Goal Tracker & Top Verified Tutors */}
-        <div className="space-y-6">
-          {/* Daily Study Goal Tracker Component */}
-          <DailyStudyGoal onStartSession={() => onStartPractice('Calculus')} />
-
-          {/* Top Verified Tutors Snippet */}
-          <div className="space-y-4">
+        {/* Right Column: Upcoming Exam Card */}
+        <div className="lg:col-span-4 bg-[#FFFFFF] rounded-3xl p-6 sm:p-7 border border-[#E2E8F0] shadow-sm flex flex-col justify-between space-y-5">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg font-bold text-[#000000]">
-                Verified Tutors
-              </h3>
-              <button
-                onClick={() => onNavigateTab('tutors')}
-                className="text-xs font-bold text-[#aa3000] hover:underline"
-              >
-                See All
-              </button>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#64748B] bg-[#F1F5F9] px-2.5 py-1 rounded-lg">
+                Upcoming Exam
+              </span>
+              <span className="material-symbols-outlined text-[#4F46E5] text-[20px]">event</span>
             </div>
+
+            <div>
+              <h3 className="font-display text-xl font-bold text-[#0F172A]">
+                University Admission Test
+              </h3>
+              <p className="text-xs font-semibold text-[#64748B] mt-0.5">
+                Dec 15, 2024
+              </p>
+            </div>
+
+            <div className="bg-[#F8FAFC] rounded-2xl p-4 border border-[#E2E8F0] flex items-center justify-between">
+              <div>
+                <span className="font-display text-3xl font-extrabold text-[#4F46E5]">{targetDays}</span>
+                <span className="text-xs font-bold text-[#64748B] ml-1.5">days left</span>
+              </div>
+              <span className="text-xs font-semibold text-[#10B981] bg-[#ECFDF5] px-2.5 py-1 rounded-full border border-[#A7F3D0]">
+                Prepare consistently!
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onStartExam('Mathematics')}
+            className="w-full py-3 text-xs sm:text-sm font-bold text-[#0F172A] hover:text-white bg-[#F1F5F9] hover:bg-[#0F172A] border border-[#E2E8F0] rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>View Exam</span>
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Bottom 3-Column Grid: Mastery by Subject, Weak Topics, Recent Activity */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Column 1: Mastery by Subject */}
+        <div className="bg-[#FFFFFF] rounded-3xl p-6 border border-[#E2E8F0] shadow-sm space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-base font-bold text-[#0F172A]">
+              Mastery by Subject
+            </h3>
+            <button
+              onClick={() => onNavigateTab('subjects')}
+              className="text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer"
+            >
+              View all
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {[
+              { name: 'Mathematics', score: 72, color: 'bg-[#4F46E5]' },
+              { name: 'Physics', score: 82, color: 'bg-[#10B981]' },
+              { name: 'Chemistry', score: 64, color: 'bg-[#F59E0B]' },
+              { name: 'English', score: 71, color: 'bg-[#3B82F6]' },
+              { name: 'Biology', score: 68, color: 'bg-[#EC4899]' },
+            ].map((sub) => (
+              <div key={sub.name} className="space-y-1.5">
+                <div className="flex justify-between text-xs font-bold">
+                  <span className="text-[#334155]">{sub.name}</span>
+                  <span className="text-[#0F172A]">{sub.score}%</span>
+                </div>
+                <div className="w-full h-2 bg-[#F1F5F9] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${sub.color} rounded-full transition-all duration-500`}
+                    style={{ width: `${sub.score}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Column 2: Weak Topics */}
+        <div className="bg-[#FFFFFF] rounded-3xl p-6 border border-[#E2E8F0] shadow-sm space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-base font-bold text-[#0F172A]">
+              Weak Topics
+            </h3>
+            <button
+              onClick={() => onNavigateTab('mistakes')}
+              className="text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer"
+            >
+              View all
+            </button>
+          </div>
 
           <div className="space-y-3">
-            {tutors.slice(0, 2).map((tutor) => (
+            {[
+              { topic: 'Integration by Parts', score: 43, subject: 'Math' },
+              { topic: 'Trigonometric Integration', score: 31, subject: 'Math' },
+              { topic: 'Organic Reactions', score: 45, subject: 'Chem' },
+              { topic: 'Limits & Continuity', score: 40, subject: 'Math' },
+            ].map((item) => (
               <div
-                key={tutor.id}
-                className="bg-[#ffffff] rounded-2xl p-4 border border-[#c5c6cd]/60 ambient-shadow flex flex-col justify-between space-y-3"
+                key={item.topic}
+                onClick={() => onStartPractice(item.topic)}
+                className="p-3 bg-[#F8FAFC] hover:bg-[#EEF2FF] rounded-2xl border border-[#E2E8F0] flex items-center justify-between transition-colors cursor-pointer group"
               >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={tutor.avatarUrl}
-                    alt={tutor.name}
-                    className="w-12 h-12 rounded-full object-cover border border-[#c5c6cd]"
-                  />
-                  <div>
-                    <h4 className="font-display text-sm font-bold text-[#000000]">
-                      {tutor.name}
-                    </h4>
-                    <p className="text-[11px] text-[#aa3000] font-semibold">{tutor.specialty}</p>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[#75777e]">
-                      <span className="flex items-center text-amber-600 font-bold">
-                        ★ {tutor.rating.toFixed(1)}
-                      </span>
-                      <span>•</span>
-                      <span>{tutor.yearsExperience} yrs exp</span>
-                    </div>
-                  </div>
+                <div>
+                  <p className="text-xs font-bold text-[#0F172A] group-hover:text-[#4F46E5] transition-colors">
+                    {item.topic}
+                  </p>
+                  <p className="text-[10px] text-[#64748B]">{item.subject} • Urgent</p>
                 </div>
+                <span className="text-xs font-extrabold text-[#EF4444] bg-[#FEE2E2] px-2.5 py-1 rounded-full">
+                  {item.score}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-[#f5f3f1]">
-                  <span className="text-xs font-bold text-[#000000]">
-                    ৳{tutor.hourlyRateBDT} <span className="text-[10px] font-normal text-[#75777e]">/ hr</span>
-                  </span>
-                  <button
-                    onClick={() => onOpenBooking(tutor)}
-                    className="px-3 py-1.5 bg-[#f5f3f1] hover:bg-[#000000] hover:text-white text-[#000000] text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                  >
-                    Book Slot
-                  </button>
+        {/* Column 3: Recent Activity */}
+        <div className="bg-[#FFFFFF] rounded-3xl p-6 border border-[#E2E8F0] shadow-sm space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-base font-bold text-[#0F172A]">
+              Recent Activity
+            </h3>
+            <button
+              onClick={() => onNavigateTab('progress')}
+              className="text-xs font-bold text-[#4F46E5] hover:underline cursor-pointer"
+            >
+              View all
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                title: 'Solved 15 questions in Integration',
+                time: '2 hours ago',
+                xp: '+15 XP',
+                icon: 'check_circle',
+                iconColor: 'text-emerald-500 bg-emerald-50',
+              },
+              {
+                title: 'Completed practice test',
+                time: '5 hours ago',
+                xp: '+50 XP',
+                icon: 'assignment_turned_in',
+                iconColor: 'text-blue-500 bg-blue-50',
+              },
+              {
+                title: 'Study streak increased to 14 days',
+                time: '1 day ago',
+                xp: '+10 XP',
+                icon: 'local_fire_department',
+                iconColor: 'text-amber-500 bg-amber-50',
+              },
+            ].map((act, i) => (
+              <div key={i} className="p-3 bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0] flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${act.iconColor}`}>
+                  <span className="material-symbols-outlined text-[18px]">{act.icon}</span>
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-[#0F172A] truncate">{act.title}</p>
+                  <p className="text-[10px] text-[#64748B]">{act.time}</p>
+                </div>
+                <span className="text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
+                  {act.xp}
+                </span>
               </div>
             ))}
           </div>
         </div>
       </div>
     </div>
-  </div>
   );
 };
-

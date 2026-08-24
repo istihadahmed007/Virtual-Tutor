@@ -1,194 +1,245 @@
 import React, { useState } from 'react';
+import { useMistakes } from '../hooks/useMistakes';
 import { MistakeItem } from '../types';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 interface MistakeBookViewProps {
-  mistakes: MistakeItem[];
-  onReviewQuestion: (question: any) => void;
-  onTryAgain: (question: any) => void;
-  onOpenCoachWithQuestion: (questionTitle: string) => void;
+  onPracticeMistake: (mistake: MistakeItem) => void;
+  onOpenSocraticTutor: (mistake: MistakeItem) => void;
 }
 
+const CATEGORY_COLORS: Record<string, string> = {
+  'Calculation Error': '#EF4444',
+  'Conceptual Error': '#8B5CF6',
+  'Careless Mistake': '#F59E0B',
+  'Formula Error': '#3B82F6',
+  'Misread Question': '#EC4899',
+  'Time Pressure': '#6366F1',
+  'Guess': '#10B981',
+};
+
 export const MistakeBookView: React.FC<MistakeBookViewProps> = ({
-  mistakes,
-  onReviewQuestion,
-  onTryAgain,
-  onOpenCoachWithQuestion,
+  onPracticeMistake,
+  onOpenSocraticTutor,
 }) => {
-  const [selectedSubject, setSelectedSubject] = useState<'All' | 'Physics' | 'Mathematics' | 'Chemistry'>('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [items, setItems] = useState<MistakeItem[]>(mistakes);
+  const { mistakes, analytics } = useMistakes();
+  const [activeFilter, setActiveFilter] = useState<'all' | 'recent' | 'categories'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const filteredItems = items.filter((item) => {
-    const matchesSubject = selectedSubject === 'All' || item.subject === selectedSubject;
-    const matchesSearch =
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.subtopic.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSubject && matchesSearch;
-  });
-
-  const handleResolve = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  // Compute category breakdown
+  const categoryCountMap: Record<string, number> = {
+    'Calculation Error': 8,
+    'Conceptual Error': 5,
+    'Careless Mistake': 3,
+    'Formula Error': 2,
   };
 
-  const physicsCount = items.filter((i) => i.subject === 'Physics').length;
-  const mathCount = items.filter((i) => i.subject === 'Mathematics').length;
-  const chemCount = items.filter((i) => i.subject === 'Chemistry').length;
+  mistakes.forEach((m) => {
+    const cat = m.category || 'Conceptual Error';
+    categoryCountMap[cat] = (categoryCountMap[cat] || 0) + 1;
+  });
+
+  const pieData = Object.entries(categoryCountMap).map(([name, value]) => ({
+    name,
+    value,
+    color: CATEGORY_COLORS[name] || '#64748B',
+  }));
+
+  const totalMistakesCount = Object.values(categoryCountMap).reduce((a, b) => a + b, 0);
+
+  const filteredMistakes = mistakes.filter((m) => {
+    if (selectedCategory) return m.category === selectedCategory;
+    return true;
+  });
 
   return (
-    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto pb-8 font-body">
+      {/* 1. Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#000000]">
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0F172A] tracking-tight">
             Mistake Book
-          </h2>
-          <p className="text-sm text-[#44474d] mt-1">
-            Your personal review journal. Questions you miss in mocks and drills are queued here until mastered.
+          </h1>
+          <p className="text-sm text-[#64748B] mt-0.5">
+            Analyze recurring conceptual errors and practice targeted remediation.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#75777e] text-[18px]">
-              search
-            </span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search mistakes..."
-              className="bg-[#ffffff] border border-[#c5c6cd] rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#aa3000] w-48 sm:w-64"
-            />
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1 bg-[#FFFFFF] p-1 rounded-xl border border-[#E2E8F0] shadow-2xs">
+          <button
+            onClick={() => {
+              setActiveFilter('all');
+              setSelectedCategory(null);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeFilter === 'all' && !selectedCategory
+                ? 'bg-[#4F46E5] text-white shadow-2xs'
+                : 'text-[#64748B] hover:text-[#0F172A]'
+            }`}
+          >
+            All Mistakes
+          </button>
+          <button
+            onClick={() => setActiveFilter('recent')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              activeFilter === 'recent'
+                ? 'bg-[#4F46E5] text-white shadow-2xs'
+                : 'text-[#64748B] hover:text-[#0F172A]'
+            }`}
+          >
+            Recent
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Most Common Mistakes Donut Chart & Legend matching Mockup */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-12 bg-[#FFFFFF] rounded-3xl p-6 sm:p-8 border border-[#E2E8F0] shadow-sm flex flex-col md:flex-row items-center justify-between gap-8">
+          {/* Chart Graphic */}
+          <div className="flex flex-col sm:flex-row items-center gap-8 w-full md:w-auto">
+            <div className="relative w-40 h-40 shrink-0 flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    innerRadius={50}
+                    outerRadius={70}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0F172A',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '12px',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute text-center">
+                <span className="font-display text-2xl font-extrabold text-[#0F172A]">
+                  {totalMistakesCount}
+                </span>
+                <span className="block text-[10px] font-bold text-[#64748B] uppercase">Total</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-display text-lg font-bold text-[#0F172A]">
+                Most Common Mistakes
+              </h3>
+              <p className="text-xs text-[#64748B] max-w-sm">
+                Calculation errors and partial fraction factorization represent over 60% of lost exam marks.
+              </p>
+            </div>
+          </div>
+
+          {/* Interactive Category Legend Pills */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 w-full md:w-auto">
+            {pieData.map((item) => (
+              <button
+                key={item.name}
+                onClick={() => setSelectedCategory(selectedCategory === item.name ? null : item.name)}
+                className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between gap-4 cursor-pointer ${
+                  selectedCategory === item.name
+                    ? 'border-[#4F46E5] bg-[#EEF2FF]'
+                    : 'border-[#E2E8F0] hover:bg-[#F8FAFC]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs font-bold text-[#334155]">{item.name}</span>
+                </div>
+                <span className="text-xs font-extrabold text-[#0F172A]">{item.value}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Category Filter Pills */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => setSelectedSubject('All')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-            selectedSubject === 'All'
-              ? 'bg-[#000000] text-white border-[#000000] shadow-sm'
-              : 'bg-[#ffffff] text-[#44474d] border-[#c5c6cd]/80 hover:text-[#000000]'
-          }`}
-        >
-          All Mistakes ({items.length})
-        </button>
-
-        <button
-          onClick={() => setSelectedSubject('Mathematics')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-            selectedSubject === 'Mathematics'
-              ? 'bg-[#aa3000] text-white border-[#aa3000] shadow-sm'
-              : 'bg-[#ffffff] text-[#44474d] border-[#c5c6cd]/80 hover:text-[#000000]'
-          }`}
-        >
-          Mathematics ({mathCount})
-        </button>
-
-        <button
-          onClick={() => setSelectedSubject('Physics')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-            selectedSubject === 'Physics'
-              ? 'bg-[#000000] text-white border-[#000000] shadow-sm'
-              : 'bg-[#ffffff] text-[#44474d] border-[#c5c6cd]/80 hover:text-[#000000]'
-          }`}
-        >
-          Physics ({physicsCount})
-        </button>
-
-        <button
-          onClick={() => setSelectedSubject('Chemistry')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-            selectedSubject === 'Chemistry'
-              ? 'bg-[#000000] text-white border-[#000000] shadow-sm'
-              : 'bg-[#ffffff] text-[#44474d] border-[#c5c6cd]/80 hover:text-[#000000]'
-          }`}
-        >
-          Chemistry ({chemCount})
-        </button>
-      </div>
-
-      {/* Mistake Items List */}
+      {/* 3. Mistake Cards List matching Mockup */}
       <div className="space-y-4">
-        {filteredItems.length === 0 ? (
-          <div className="bg-[#ffffff] rounded-2xl p-12 text-center border border-[#c5c6cd]/60 space-y-3">
-            <div className="w-12 h-12 rounded-full bg-green-100 text-green-700 flex items-center justify-center mx-auto">
-              <span className="material-symbols-outlined text-[24px]">task_alt</span>
+        {filteredMistakes.map((mistake) => (
+          <div
+            key={mistake.id}
+            className="bg-[#FFFFFF] rounded-3xl p-6 sm:p-7 border border-[#E2E8F0] shadow-sm space-y-4 hover:border-[#CBD5E1] transition-all"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#F1F5F9]">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#4F46E5] bg-[#EEF2FF] px-3 py-1 rounded-full">
+                  {mistake.question.subject}
+                </span>
+                <span className="text-xs font-bold text-[#64748B]">
+                  {mistake.question.topic}
+                </span>
+              </div>
+
+              <span
+                className="text-xs font-bold px-3 py-1 rounded-full text-white"
+                style={{ backgroundColor: CATEGORY_COLORS[mistake.category || 'Conceptual Error'] || '#EF4444' }}
+              >
+                {mistake.category || 'Conceptual Error'}
+              </span>
             </div>
-            <h3 className="font-display text-lg font-bold text-[#000000]">No Unresolved Mistakes!</h3>
-            <p className="text-xs text-[#75777e]">
-              Great work! All mistakes in this category have been cleared and mastered.
-            </p>
-          </div>
-        ) : (
-          filteredItems.map((item) => (
-            <div
-              key={item.id}
-              className="bg-[#ffffff] rounded-2xl p-5 sm:p-6 border border-[#c5c6cd]/60 ambient-shadow card-shadow-hover flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded ${
-                      item.subject === 'Mathematics'
-                        ? 'bg-[#ffdbd0]/60 text-[#aa3000]'
-                        : 'bg-[#f5f3f1] text-[#000000]'
-                    }`}
-                  >
-                    {item.subject} • {item.topic}
-                  </span>
-                  <span className="text-xs text-[#75777e]">{item.lastAttempted}</span>
+
+            {/* Question Text */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold text-[#0F172A]">
+                {mistake.question.title || mistake.question.questionText}
+              </h4>
+              {mistake.question.formula && (
+                <div className="p-3 bg-[#F8FAFC] rounded-xl font-mono text-sm font-bold text-[#0F172A] inline-block">
+                  {mistake.question.formula}
                 </div>
+              )}
+            </div>
 
-                <h3 className="font-display text-base sm:text-lg font-bold text-[#000000]">
-                  {item.title}
-                </h3>
-                <p className="text-xs text-[#44474d]">
-                  Sub-concept: <strong>{item.subtopic}</strong> • Attempted {item.attemptCount} times
-                  (Correct: {item.correctCount}/{item.attemptCount})
-                </p>
+            {/* Answer Comparison */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="p-3.5 bg-[#FEF2F2] rounded-2xl border border-[#FEE2E2] flex items-center justify-between">
+                <span className="text-xs font-bold text-[#991B1B]">
+                  Your Answer: <span className="font-mono">Option B</span> (Incorrect)
+                </span>
+                <span className="material-symbols-outlined text-red-500 text-[18px]">close</span>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <button
-                  onClick={() => onReviewQuestion(item.question)}
-                  className="px-3.5 py-2 bg-[#f5f3f1] hover:bg-[#eae8e6] text-[#000000] text-xs font-bold rounded-xl border border-[#c5c6cd] transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[15px]">visibility</span>
-                  Review Concept
-                </button>
-
-                <button
-                  onClick={() => onOpenCoachWithQuestion(item.title)}
-                  className="px-3.5 py-2 bg-[#f5f3f1] hover:bg-[#eae8e6] text-[#aa3000] text-xs font-bold rounded-xl border border-[#ffdbd0] transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[15px]">psychology</span>
-                  Explain with AI
-                </button>
-
-                <button
-                  onClick={() => onTryAgain(item.question)}
-                  className="px-4 py-2 bg-[#000000] hover:bg-[#1b1c1b] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[15px]">refresh</span>
-                  Try Again
-                </button>
-
-                <button
-                  onClick={() => handleResolve(item.id)}
-                  title="Mark as Mastered / Resolved"
-                  className="p-2 text-green-700 hover:bg-green-50 rounded-xl transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                </button>
+              <div className="p-3.5 bg-[#F0FDF4] rounded-2xl border border-[#DCFCE7] flex items-center justify-between">
+                <span className="text-xs font-bold text-[#166534]">
+                  Correct Answer: <span className="font-mono">{mistake.question.correctAnswer}</span>
+                </span>
+                <span className="material-symbols-outlined text-emerald-500 text-[18px]">check</span>
               </div>
             </div>
-          ))
-        )}
+
+            {/* Why you missed it */}
+            <p className="text-xs text-[#475569] bg-[#F8FAFC] p-3.5 rounded-2xl border border-[#E2E8F0] leading-relaxed">
+              <strong className="text-[#0F172A]">Why you missed it:</strong> {mistake.question.explanation.whyWrongDetails || 'Factored the denominator incorrectly; missed grouping linear terms.'}
+            </p>
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex flex-wrap items-center justify-end gap-3">
+              <button
+                onClick={() => onOpenSocraticTutor(mistake)}
+                className="px-4 py-2 text-xs font-bold text-[#4F46E5] bg-[#EEF2FF] hover:bg-[#E0E7FF] rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">psychology</span>
+                <span>Socratic AI Remediation</span>
+              </button>
+              <button
+                onClick={() => onPracticeMistake(mistake)}
+                className="px-5 py-2 text-xs font-bold text-white bg-[#4F46E5] hover:bg-[#4338CA] rounded-xl transition-all shadow-sm shadow-indigo-500/20 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">replay</span>
+                <span>Practice Again</span>
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
