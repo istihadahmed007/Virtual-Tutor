@@ -1,0 +1,6 @@
+{
+  "name": "Exam Mastery OS",
+  "description": "Minimalist-editorial high-stakes exam preparation platform with adaptive practice, mistake book, AI coach, diagnostics, and premium tutors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
