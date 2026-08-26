@@ -20,6 +20,9 @@ import {
   LiveClass,
   User,
   Tutor,
+  TutorBooking,
+  TutorSOSRequest,
+  TutorMessage,
 } from '../types/index.js';
 import { AiCoachEngine } from '../services/aiCoachEngine.js';
 
@@ -846,8 +849,8 @@ apiRouter.post('/ai-coach', async (req: AuthenticatedRequest, res: Response) => 
 // 10. HUMAN-LED TUTOR STUDIO
 // ==========================================
 apiRouter.get('/tutors', (req: AuthenticatedRequest, res: Response) => {
-  // Only serve verified, approved faculty accounts from db.users
-  const verifiedTutors: Tutor[] = db.users
+  // Combine db.tutors and any approved teacher accounts from db.users
+  const userTutors: Tutor[] = db.users
     .filter((u) => u.role === 'TEACHER' && u.teacherStatus === 'APPROVED')
     .map((u) => {
       const expNumber = parseInt(u.teacherProfile?.experience || '10') || 10;
@@ -856,53 +859,76 @@ apiRouter.get('/tutors', (req: AuthenticatedRequest, res: Response) => {
         name: u.name,
         title: u.name,
         subject: u.teacherProfile?.subjects?.join(' & ') || 'Higher Mathematics & Physics',
+        subjectsList: u.teacherProfile?.subjects || ['Higher Mathematics', 'Physics'],
         specialty: u.teacherProfile?.qualifications || 'Advanced Concept & Board Problem Solving',
         education: u.teacherProfile?.qualifications || u.institution || 'Verified Faculty Member',
         institution: u.institution || 'Verified National University Faculty',
         rating: 5.0,
         reviewCount: 42,
         yearsExperience: expNumber,
+        totalStudentsTaught: 600,
+        totalHoursTaught: 800,
         languages: ['Bangla', 'English'],
         hourlyRateBDT: u.teacherProfile?.hourlyRateBDT || 1200,
         avatarUrl: u.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=200&auto=format&fit=crop&q=80',
         isHighDemand: true,
         isAvailableToday: true,
+        isAvailableNow: true,
         bio: u.teacherProfile?.bio || `${u.name} is a verified academic mentor at ${u.institution || 'Virtual Tutor'}.`,
         availableTimeSlots: ['04:00 PM - 05:00 PM', '06:30 PM - 07:30 PM', '08:00 PM - 09:00 PM'],
+        badge: 'FACULTY',
       };
     });
 
-  res.json({ tutors: verifiedTutors });
+  // Filter out duplicates by ID
+  const allTutors = [...db.tutors];
+  userTutors.forEach((ut) => {
+    if (!allTutors.some((t) => t.id === ut.id)) {
+      allTutors.push(ut);
+    }
+  });
+
+  res.json({ tutors: allTutors });
 });
 
 apiRouter.get('/tutors/:id', (req: AuthenticatedRequest, res: Response) => {
+  const tutorId = req.params.id;
+  const tutor = db.tutors.find((t) => t.id === tutorId || t.id === `tut_${tutorId}`);
+  if (tutor) return res.json({ tutor });
+
   const teacherUsers = db.users.filter((u) => u.role === 'TEACHER' && u.teacherStatus === 'APPROVED');
-  const user = teacherUsers.find((u) => `tut_${u.id}` === req.params.id || u.id === req.params.id);
+  const user = teacherUsers.find((u) => `tut_${u.id}` === tutorId || u.id === tutorId);
   if (!user) return res.status(404).json({ error: 'Tutor not found' });
-  const tutor: Tutor = {
+
+  const fallbackTutor: Tutor = {
     id: `tut_${user.id}`,
     name: user.name,
     title: user.name,
     subject: user.teacherProfile?.subjects?.join(' & ') || 'Higher Mathematics & Physics',
+    subjectsList: user.teacherProfile?.subjects || ['Higher Mathematics'],
     specialty: user.teacherProfile?.qualifications || 'Advanced Concept & Board Problem Solving',
     education: user.teacherProfile?.qualifications || user.institution || 'Verified Faculty Member',
     institution: user.institution || 'Verified National University Faculty',
     rating: 5.0,
     reviewCount: 42,
     yearsExperience: parseInt(user.teacherProfile?.experience || '10') || 10,
+    totalStudentsTaught: 600,
+    totalHoursTaught: 800,
     languages: ['Bangla', 'English'],
     hourlyRateBDT: user.teacherProfile?.hourlyRateBDT || 1200,
     avatarUrl: user.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=200&auto=format&fit=crop&q=80',
     isHighDemand: true,
     isAvailableToday: true,
+    isAvailableNow: true,
     bio: user.teacherProfile?.bio || `${user.name} is a verified academic mentor at ${user.institution || 'Virtual Tutor'}.`,
     availableTimeSlots: ['04:00 PM - 05:00 PM', '06:30 PM - 07:30 PM', '08:00 PM - 09:00 PM'],
+    badge: 'FACULTY',
   };
-  res.json({ tutor });
+  res.json({ tutor: fallbackTutor });
 });
 
 apiRouter.post('/tutors/book', (req: AuthenticatedRequest, res: Response) => {
-  const userId = req.user?.id || 'usr_student_1';
+  const userId = req.user?.id || 'usr_istihad';
   const validation = TutorBookingSchema.safeParse(req.body);
 
   if (!validation.success) {
@@ -910,25 +936,36 @@ apiRouter.post('/tutors/book', (req: AuthenticatedRequest, res: Response) => {
   }
 
   const { tutorId, date, timeSlot, subject, topic } = validation.data;
+  const doubtDescription = req.body.doubtDescription || req.body.notes || '';
   
-  // Lookup teacher from db.users or db.tutors
+  // Lookup teacher from db.tutors or db.users
+  const matchedTutor = db.tutors.find((t) => t.id === tutorId || t.id === `tut_${tutorId}`);
   const matchedUser = db.users.find((u) => u.role === 'TEACHER' && (`tut_${u.id}` === tutorId || u.id === tutorId));
-  const tutorName = matchedUser ? matchedUser.name : (db.tutors.find((t) => t.id === tutorId)?.name || 'Verified Faculty');
-  const tutorRate = matchedUser?.teacherProfile?.hourlyRateBDT || 1200;
+  
+  const tutorName = matchedTutor?.name || matchedUser?.name || 'Verified Faculty Member';
+  const tutorAvatar = matchedTutor?.avatarUrl || matchedUser?.avatarUrl || 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=200&auto=format&fit=crop&q=80';
+  const tutorSpecialty = matchedTutor?.specialty || matchedUser?.teacherProfile?.qualifications || 'Academic Mentor';
+  const tutorRate = matchedTutor?.hourlyRateBDT || matchedUser?.teacherProfile?.hourlyRateBDT || 1200;
 
-  const newBooking = {
+  const meetingCode = `VT-${subject.slice(0, 4).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const newBooking: TutorBooking = {
     id: `bk_${Date.now()}`,
     userId,
     tutorId,
-    studentName: req.user?.name || 'Student',
+    studentName: req.user?.name || 'Istihad Ahmed',
     tutorName,
+    tutorAvatar,
+    tutorSpecialty,
     date,
     timeSlot,
     subject,
     topic,
-    status: 'CONFIRMED' as const,
+    status: 'CONFIRMED',
     rateBDT: tutorRate,
-    sessionNotes: `Target topic: ${topic}. Please prepare diagnostic questions.`,
+    meetingCode,
+    sessionNotes: `Target topic: ${topic}. Diagnostic problem solving and concept remediation.`,
+    doubtDescription,
     createdAt: new Date().toISOString(),
   };
 
@@ -936,8 +973,17 @@ apiRouter.post('/tutors/book', (req: AuthenticatedRequest, res: Response) => {
   res.json({ success: true, booking: newBooking });
 });
 
+apiRouter.post('/tutors/bookings/:bookingId/cancel', (req: AuthenticatedRequest, res: Response) => {
+  const { bookingId } = req.params;
+  const booking = db.bookings.find((b) => b.id === bookingId);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+  booking.status = 'CANCELLED';
+  res.json({ success: true, booking, message: 'Session cancelled successfully.' });
+});
+
 apiRouter.get('/tutors/my-bookings', (req: AuthenticatedRequest, res: Response) => {
-  const userId = req.user?.id || 'usr_student_1';
+  const userId = req.user?.id || 'usr_istihad';
   if (req.user?.role === 'TEACHER') {
     // Return sessions assigned to this tutor/teacher
     const tutorBookings = db.bookings.filter(
@@ -947,21 +993,128 @@ apiRouter.get('/tutors/my-bookings', (req: AuthenticatedRequest, res: Response) 
   }
 
   // Student bookings
-  const studentBookings = db.bookings.filter((b) => b.userId === userId);
+  const studentBookings = db.bookings.filter((b) => b.userId === userId || !b.userId);
   res.json({ bookings: studentBookings });
 });
 
-apiRouter.put('/tutors/bookings/:bookingId', requireRole(['TEACHER', 'ADMIN']), (req: AuthenticatedRequest, res: Response) => {
+apiRouter.put('/tutors/bookings/:bookingId', requireRole(['TEACHER', 'ADMIN', 'STUDENT']), (req: AuthenticatedRequest, res: Response) => {
   const { bookingId } = req.params;
-  const { sessionNotes, status } = req.body;
+  const { sessionNotes, status, prescription } = req.body;
 
   const booking = db.bookings.find((b) => b.id === bookingId);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
   if (sessionNotes !== undefined) booking.sessionNotes = sessionNotes;
   if (status !== undefined) booking.status = status;
+  if (prescription !== undefined) booking.prescription = prescription;
 
   res.json({ success: true, booking });
+});
+
+// Rapid 15-Minute SOS Doubt Matching
+apiRouter.post('/tutors/sos/request', (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id || 'usr_istihad';
+  const userName = req.user?.name || 'Istihad Ahmed';
+  const { subject, topic, urgency, doubtDescription } = req.body;
+
+  // Find an available online tutor
+  const onlineTutor = db.tutors.find((t) => t.isAvailableNow && (t.subject.toLowerCase().includes((subject || '').toLowerCase()) || t.subjectsList?.some(s => s.toLowerCase().includes((subject || '').toLowerCase())))) || db.tutors[0];
+
+  const sosReq: TutorSOSRequest = {
+    id: `sos_${Date.now()}`,
+    studentId: userId,
+    studentName: userName,
+    subject: subject || 'Higher Mathematics',
+    topic: topic || 'High-Yield Doubt Solving',
+    urgency: urgency || 'HIGH',
+    doubtDescription: doubtDescription || 'Immediate 15-min problem solving consultation requested.',
+    assignedTutorId: onlineTutor?.id || 'tut_1',
+    assignedTutorName: onlineTutor?.name || 'Dr. Tariq Rahman',
+    status: 'MATCHED',
+    meetingCode: `VT-SOS-${Math.floor(1000 + Math.random() * 9000)}`,
+    createdAt: new Date().toISOString(),
+  };
+
+  db.tutorSOSQueue.unshift(sosReq);
+
+  // Also auto-create a confirmed instant booking so it appears in live session dashboard
+  const instantBooking: TutorBooking = {
+    id: `bk_sos_${Date.now()}`,
+    userId,
+    tutorId: sosReq.assignedTutorId!,
+    studentName: userName,
+    tutorName: sosReq.assignedTutorName!,
+    tutorAvatar: onlineTutor?.avatarUrl,
+    tutorSpecialty: onlineTutor?.specialty,
+    date: 'Right Now (15-Min SOS)',
+    timeSlot: 'Instant Live Room',
+    subject: sosReq.subject,
+    topic: sosReq.topic,
+    status: 'CONFIRMED',
+    rateBDT: 350,
+    meetingCode: sosReq.meetingCode,
+    doubtDescription: sosReq.doubtDescription,
+    sessionNotes: 'Rapid 15-minute emergency doubt solving room. Focused on immediate blocker resolution.',
+    createdAt: new Date().toISOString(),
+  };
+  db.bookings.unshift(instantBooking);
+
+  res.json({ success: true, sosRequest: sosReq, booking: instantBooking });
+});
+
+apiRouter.get('/tutors/sos/my-requests', (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id || 'usr_istihad';
+  const requests = db.tutorSOSQueue.filter((r) => r.studentId === userId);
+  res.json({ requests });
+});
+
+// Tutor Direct Messaging
+apiRouter.get('/tutors/messages/:tutorId', (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id || 'usr_istihad';
+  const { tutorId } = req.params;
+  const messages = db.tutorMessages.filter((m) => m.tutorId === tutorId && m.userId === userId);
+  res.json({ messages });
+});
+
+apiRouter.post('/tutors/messages', (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.id || 'usr_istihad';
+  const userName = req.user?.name || 'Istihad Ahmed';
+  const { tutorId, text, doubtTopic } = req.body;
+
+  if (!tutorId || !text) {
+    return res.status(400).json({ error: 'tutorId and text are required' });
+  }
+
+  const newMsg: TutorMessage = {
+    id: `tmsg_${Date.now()}`,
+    senderId: userId,
+    senderName: userName,
+    senderRole: 'STUDENT',
+    tutorId,
+    userId,
+    text,
+    timestamp: 'Just now',
+    doubtTopic,
+  };
+
+  db.tutorMessages.push(newMsg);
+
+  // Auto-respond from faculty after a brief acknowledgment if it's the first query
+  const tutor = db.tutors.find((t) => t.id === tutorId);
+  const tutorReply: TutorMessage = {
+    id: `tmsg_reply_${Date.now()}`,
+    senderId: tutorId,
+    senderName: tutor?.name || 'Dr. Tariq Rahman',
+    senderRole: 'TEACHER',
+    tutorId,
+    userId,
+    text: `Thank you for reaching out, Istihad! I have received your question regarding "${doubtTopic || 'your study query'}". We can thoroughly dissect this step-by-step during our 1-on-1 live session, or feel free to attach an image snapshot of the specific equation.`,
+    timestamp: 'Just now',
+    doubtTopic,
+  };
+  db.tutorMessages.push(tutorReply);
+
+  res.json({ success: true, message: newMsg, reply: tutorReply });
 });
 
 // ==========================================

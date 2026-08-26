@@ -263,6 +263,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
+      {/* 3.5. Featured Human Mentors & Instant Doubt SOS Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-7 border border-indigo-500/30 shadow-lg">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-xl">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Verified Faculty Live
+              </span>
+              <span className="text-xs text-indigo-200">BUET • DMC • DU Alumni Mentors</span>
+            </div>
+            <h3 className="font-display text-xl font-bold text-white">
+              Stuck on complex calculus or organic reactions? Connect 1-on-1 with human mentors.
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Book a targeted 60-minute whiteboard session or launch a 15-minute Instant Doubt SOS for real-time problem breakdowns and diagnostic prescriptions.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <button
+              onClick={() => onNavigateTab('tutors')}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <span>Explore Faculty & Sessions</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* 4. Bottom 3-Column Grid: Mastery by Subject, Weak Topics, Recent Activity */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Column 1: Mastery by Subject */}

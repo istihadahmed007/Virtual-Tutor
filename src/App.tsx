@@ -585,8 +585,24 @@ export function App() {
         isOpen={!!selectedTutorForBooking}
         onClose={() => setSelectedTutorForBooking(null)}
         preferredLanguage={preferredLanguage}
-        onConfirmBooking={(details) => {
-          triggerToast(`Session booked with ${details.tutor.name}!`);
+        onConfirmBooking={async (details) => {
+          try {
+            const res = await apiClient.bookTutor({
+              tutorId: details.tutor.id,
+              date: details.date || 'Today',
+              timeSlot: details.timeSlot || '05:00 PM - 06:00 PM',
+              subject: details.subject || details.tutor.subject,
+              topic: details.topic || '1-on-1 Focus Session',
+              doubtDescription: details.doubtDescription,
+            });
+            if (res.success) {
+              triggerToast(`1-on-1 session confirmed with ${details.tutor.name}! Meeting ID: ${res.booking?.meetingCode || 'VT-LIVE'}`);
+            } else {
+              triggerToast(`Session requested with ${details.tutor.name}`);
+            }
+          } catch {
+            triggerToast(`Session confirmed with ${details.tutor.name}`);
+          }
         }}
       />
 

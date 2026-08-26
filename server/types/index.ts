@@ -282,24 +282,41 @@ export interface SubjectMastery {
   strongestTopic: string;
 }
 
+export interface TutorReview {
+  id: string;
+  studentName: string;
+  rating: number;
+  date: string;
+  comment: string;
+  topicCovered?: string;
+}
+
 export interface Tutor {
   id: string;
   name: string;
   title: string;
   subject: string;
+  subjectsList?: string[];
   specialty: string;
   education: string;
   institution: string; // e.g. BUET, DMC, Dhaka University, IBA
   rating: number;
   reviewCount: number;
   yearsExperience: number;
+  totalStudentsTaught?: number;
+  totalHoursTaught?: number;
   languages: string[];
   hourlyRateBDT: number;
   avatarUrl: string;
   isHighDemand: boolean;
   isAvailableToday: boolean;
+  isAvailableNow?: boolean;
   bio: string;
   availableTimeSlots: string[];
+  teachingStyle?: string[];
+  keyAchievements?: string[];
+  reviews?: TutorReview[];
+  badge?: string;
 }
 
 export interface TutorBooking {
@@ -308,13 +325,53 @@ export interface TutorBooking {
   tutorId: string;
   studentName: string;
   tutorName: string;
+  tutorAvatar?: string;
+  tutorSpecialty?: string;
   date: string;
   timeSlot: string;
   subject: string;
   topic: string;
-  status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
+  status: 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'IN_PROGRESS';
   rateBDT: number;
+  meetingCode?: string;
   sessionNotes?: string;
+  doubtDescription?: string;
+  prescription?: {
+    strengths: string[];
+    weaknesses: string[];
+    actionItems: string[];
+    recommendedProblems: string[];
+  };
+  hasRecording?: boolean;
+  recordingDurationMinutes?: number;
+  createdAt: string;
+}
+
+export interface TutorMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'STUDENT' | 'TEACHER';
+  tutorId: string;
+  userId: string;
+  text: string;
+  timestamp: string;
+  attachmentUrl?: string;
+  doubtTopic?: string;
+}
+
+export interface TutorSOSRequest {
+  id: string;
+  studentId: string;
+  studentName: string;
+  subject: string;
+  topic: string;
+  urgency: 'HIGH' | 'EXAM_TODAY' | 'NORMAL';
+  doubtDescription: string;
+  assignedTutorId?: string;
+  assignedTutorName?: string;
+  status: 'QUEUED' | 'MATCHED' | 'IN_SESSION' | 'RESOLVED';
+  meetingCode?: string;
   createdAt: string;
 }
 

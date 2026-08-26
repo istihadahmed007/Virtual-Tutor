@@ -4,6 +4,8 @@ import {
   MistakeItem,
   Tutor,
   TutorBooking,
+  TutorMessage,
+  TutorSOSRequest,
   SubjectMastery,
   TopicMastery,
   DailyStudyPlan,
@@ -517,12 +519,24 @@ export const apiClient = {
     }
   },
 
+  async getTutor(id: string): Promise<Tutor | null> {
+    try {
+      const res = await fetch(`/api/tutors/${id}`);
+      if (!res.ok) throw new Error('Failed to get tutor');
+      const data = await res.json();
+      return data.tutor;
+    } catch {
+      return null;
+    }
+  },
+
   async bookTutor(booking: {
     tutorId: string;
     date: string;
     timeSlot: string;
     subject: string;
     topic: string;
+    doubtDescription?: string;
   }) {
     try {
       const res = await fetch('/api/tutors/book', {
@@ -533,6 +547,17 @@ export const apiClient = {
       return await res.json();
     } catch {
       return { success: true };
+    }
+  },
+
+  async cancelBooking(bookingId: string) {
+    try {
+      const res = await fetch(`/api/tutors/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+      });
+      return await res.json();
+    } catch {
+      return { success: false };
     }
   },
 
@@ -547,13 +572,75 @@ export const apiClient = {
     }
   },
 
-  async updateBookingNotes(bookingId: string, sessionNotes: string, status?: string) {
+  async updateBookingNotes(
+    bookingId: string,
+    sessionNotes?: string,
+    status?: string,
+    prescription?: any
+  ) {
     const res = await fetch(`/api/tutors/bookings/${bookingId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionNotes, status }),
+      body: JSON.stringify({ sessionNotes, status, prescription }),
     });
     return await res.json();
+  },
+
+  async requestTutorSOS(payload: {
+    subject: string;
+    topic: string;
+    urgency: 'HIGH' | 'EXAM_TODAY' | 'NORMAL';
+    doubtDescription: string;
+  }): Promise<{ success: boolean; sosRequest?: TutorSOSRequest; booking?: TutorBooking }> {
+    try {
+      const res = await fetch('/api/tutors/sos/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return await res.json();
+    } catch {
+      return { success: false };
+    }
+  },
+
+  async getMySOSRequests(): Promise<TutorSOSRequest[]> {
+    try {
+      const res = await fetch('/api/tutors/sos/my-requests');
+      if (!res.ok) throw new Error('Failed to fetch SOS requests');
+      const data = await res.json();
+      return data.requests;
+    } catch {
+      return [];
+    }
+  },
+
+  async getTutorMessages(tutorId: string): Promise<TutorMessage[]> {
+    try {
+      const res = await fetch(`/api/tutors/messages/${tutorId}`);
+      if (!res.ok) throw new Error('Failed to get messages');
+      const data = await res.json();
+      return data.messages;
+    } catch {
+      return [];
+    }
+  },
+
+  async sendTutorMessage(payload: {
+    tutorId: string;
+    text: string;
+    doubtTopic?: string;
+  }): Promise<{ success: boolean; message?: TutorMessage; reply?: TutorMessage }> {
+    try {
+      const res = await fetch('/api/tutors/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return await res.json();
+    } catch {
+      return { success: false };
+    }
   },
 
   // 11. Admin Content Workspace
